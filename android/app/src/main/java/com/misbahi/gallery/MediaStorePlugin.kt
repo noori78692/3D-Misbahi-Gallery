@@ -6,19 +6,20 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import java.util.concurrent.Executors
 
 @CapacitorPlugin(
     name = "MediaStorePlugin",
     permissions = [
         Permission(
+            alias = "storage",
             strings = [
                 android.Manifest.permission.READ_MEDIA_IMAGES,
                 android.Manifest.permission.READ_MEDIA_VIDEO,
                 android.Manifest.permission.READ_MEDIA_AUDIO,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE
-            ],
-            name = "storage"
+            ]
         )
     ]
 )
@@ -92,7 +93,7 @@ class MediaStorePlugin : Plugin() {
         worker.execute {
             try {
                 val scan = mediaStoreManager.scanMediaStore("all", 5000, 0)
-                val albums = scan.getJSArray("albums")
+                val albums = scan.getJSONArray("albums")
                 val result = JSObject()
                 result.put("albums", albums)
                 val finalResult = result
