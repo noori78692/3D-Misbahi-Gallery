@@ -1,0 +1,6 @@
+{
+  "name": "3D Misbahi Gallery",
+  "description": "Futuristic gallery app with 3D floating album space, 2D classic grid, AI organization, vault, storage analyzer, audio player & photo editor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
