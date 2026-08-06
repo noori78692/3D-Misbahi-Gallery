@@ -37,6 +37,13 @@ export const AndroidPermissionScanner: React.FC<AndroidPermissionScannerProps> =
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-request permission on mount when running on Android platform
+  React.useEffect(() => {
+    if (Capacitor.getPlatform() === 'android') {
+      handleGrantPermission();
+    }
+  }, []);
+
   // Grant Android Permission Flow & Automatic Scan
   const handleGrantPermission = async () => {
     playSoundEffect('unlock', soundEffectsEnabled);

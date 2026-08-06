@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MediaItem, Album, View3DStyle, ThemeMode } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
-import { RotateCw, ZoomIn, ZoomOut, Sparkles, Layers, Box, Compass, Volume2, VolumeX, Eye } from 'lucide-react';
+import { RotateCw, ZoomIn, ZoomOut, Sparkles, Layers, Box, Compass, Volume2, VolumeX, Eye, X, Zap } from 'lucide-react';
 
 interface Gallery3DProps {
   items: MediaItem[];
@@ -13,6 +13,7 @@ interface Gallery3DProps {
   backgroundMusicEnabled: boolean;
   onToggleBGM: () => void;
   themeMode?: ThemeMode;
+  onClose?: () => void;
 }
 
 export const Gallery3D: React.FC<Gallery3DProps> = ({
@@ -24,6 +25,7 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
   backgroundMusicEnabled,
   onToggleBGM,
   themeMode = 'dark',
+  onClose,
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [layoutStyle, setLayoutStyle] = useState<View3DStyle>('floating_cubes');
@@ -63,9 +65,15 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
     camera.position.set(0, 0, zoomRef.current);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: 'high-performance',
+      precision: 'highp',
+      stencil: false,
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     rendererRef.current = renderer;
@@ -250,6 +258,7 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
     const handlePointerDown = (e: PointerEvent) => {
       isDraggingRef.current = true;
       previousMouseRef.current = { x: e.clientX, y: e.clientY };
+      playSoundEffect('rotate', soundEffectsEnabled);
     };
 
     const handlePointerMove = (e: PointerEvent) => {
@@ -265,8 +274,6 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
         rotationTargetRef.current.x += deltaY * 0.005;
 
         previousMouseRef.current = { x: e.clientX, y: e.clientY };
-
-        playSoundEffect('rotate', soundEffectsEnabled);
       }
 
       // Check Hover
@@ -327,18 +334,20 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
     container.addEventListener('click', handleClick);
     container.addEventListener('wheel', handleWheel, { passive: false });
 
-    // 6. Animation Loop (60 FPS Smooth)
+    // 6. High Refresh Rate Animation Loop (90 FPS / 120Hz Smooth)
     let animationFrameId: number;
     let clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
+      const delta = Math.min(clock.getDelta(), 0.1);
       const elapsedTime = clock.getElapsedTime();
 
-      // Smooth camera orbit rotation
-      rotationCurrentRef.current.x += (rotationTargetRef.current.x - rotationCurrentRef.current.x) * 0.08;
-      rotationCurrentRef.current.y += (rotationTargetRef.current.y - rotationCurrentRef.current.y) * 0.08;
+      // Ultra-smooth 90FPS / 120Hz framerate independent lerp
+      const dampFactor = 1 - Math.exp(-14 * delta);
+      rotationCurrentRef.current.x += (rotationTargetRef.current.x - rotationCurrentRef.current.x) * dampFactor;
+      rotationCurrentRef.current.y += (rotationTargetRef.current.y - rotationCurrentRef.current.y) * dampFactor;
 
       if (cameraRef.current) {
         cameraRef.current.position.x = Math.sin(rotationCurrentRef.current.y) * zoomRef.current;
@@ -350,7 +359,7 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
       // Gentle Floating Levitation Animation for cards
       meshesRef.current.forEach(({ mesh, initialPos }, i) => {
         mesh.position.y = initialPos.y + Math.sin(elapsedTime * 1.5 + i * 0.5) * 0.15;
-        mesh.rotation.y += 0.002;
+        mesh.rotation.y += 0.002 * (delta * 60);
       });
 
       // Background particle drift
@@ -381,8 +390,27 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
       window.removeEventListener('pointerup', handlePointerUp);
       container.removeEventListener('click', handleClick);
       container.removeEventListener('wheel', handleWheel);
-      if (rendererRef.current && rendererRef.current.domElement) {
-        container.removeChild(rendererRef.current.domElement);
+      // Clean up Three.js scene meshes and WebGL resources
+      meshesRef.current.forEach(({ mesh }) => {
+        mesh.geometry.dispose();
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((mat) => {
+            if (mat.map) mat.map.dispose();
+            mat.dispose();
+          });
+        } else if (mesh.material) {
+          if ((mesh.material as any).map) (mesh.material as any).map.dispose();
+          mesh.material.dispose();
+        }
+      });
+      particleGeometry.dispose();
+      particleMaterial.dispose();
+
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        if (rendererRef.current.domElement && container.contains(rendererRef.current.domElement)) {
+          container.removeChild(rendererRef.current.domElement);
+        }
       }
     };
   }, [items, albums]);
@@ -444,115 +472,144 @@ export const Gallery3D: React.FC<Gallery3DProps> = ({
   }
 
   return (
-    <div className="relative w-full h-[calc(100vh-130px)] overflow-hidden bg-slate-950 select-none rounded-2xl border border-slate-800 shadow-2xl">
+    <div className="relative w-full h-full min-h-[500px] overflow-hidden bg-slate-950 select-none">
       {/* 3D Render Canvas Container */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
       {/* Floating Futuristic HUD Header */}
-      <div className="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-slate-800 shadow-xl pointer-events-auto z-10">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
-          <span className="text-sm font-semibold text-slate-100 tracking-wide uppercase">3D Spatial Matrix</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            60 FPS WebGL
-          </span>
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col gap-2.5 pointer-events-auto max-w-5xl mx-auto">
+        {/* Top Bar: Title & Primary Controls */}
+        <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-2xl bg-slate-900/85 backdrop-blur-xl border border-slate-800 shadow-2xl">
+          {/* Title & Badge */}
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400 shrink-0 animate-pulse" />
+            <h2 className="text-xs sm:text-sm font-extrabold text-white truncate tracking-wide">
+              Spatial 3D Gallery
+            </h2>
+            <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap">
+              <Zap className="w-3 h-3 text-emerald-400 animate-pulse" />
+              90 FPS / 120Hz Ultra Smooth
+            </span>
+          </div>
+
+          {/* Quick Actions & Exit */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Audio Toggle */}
+            <button
+              onClick={onToggleBGM}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap ${
+                backgroundMusicEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title="Toggle Ambient Background Music"
+            >
+              {backgroundMusicEnabled ? (
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              ) : (
+                <VolumeX className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">{backgroundMusicEnabled ? 'BGM ON' : 'BGM OFF'}</span>
+            </button>
+
+            {/* Zoom Controls */}
+            <button
+              onClick={() => {
+                zoomRef.current = Math.max(zoomRef.current - 4, 6);
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+            <button
+              onClick={() => {
+                zoomRef.current = Math.min(zoomRef.current + 4, 35);
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            {/* Exit 3D Mode Button */}
+            {onClose && (
+              <button
+                onClick={() => {
+                  playSoundEffect('click', soundEffectsEnabled);
+                  onClose();
+                }}
+                className="ml-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/80 transition-all whitespace-nowrap"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Exit 3D</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* 3D Layout Style Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-          <button
-            onClick={() => {
-              setLayoutStyle('floating_cubes');
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              layoutStyle === 'floating_cubes'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Box className="w-3.5 h-3.5" />
-            Floating
-          </button>
-          <button
-            onClick={() => {
-              setLayoutStyle('helix_carousel');
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              layoutStyle === 'helix_carousel'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            Helix 3D
-          </button>
-          <button
-            onClick={() => {
-              setLayoutStyle('sphere_cloud');
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              layoutStyle === 'sphere_cloud'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            Sphere Globe
-          </button>
-          <button
-            onClick={() => {
-              setLayoutStyle('wall_grid');
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              layoutStyle === 'wall_grid'
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-            Curved Wall
-          </button>
-        </div>
-
-        {/* Audio Toggle & Zoom controls */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleBGM}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
-              backgroundMusicEnabled
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-950/50'
-                : 'bg-slate-800/80 text-slate-400 border-slate-700'
-            }`}
-            title="Toggle Ambient Background Music"
-          >
-            {backgroundMusicEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-            <span>{backgroundMusicEnabled ? 'BGM ON' : 'BGM OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              zoomRef.current = Math.max(zoomRef.current - 4, 6);
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              zoomRef.current = Math.min(zoomRef.current + 4, 35);
-              playSoundEffect('click', soundEffectsEnabled);
-            }}
-            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
+        {/* 3D Mode Selector Pills Bar */}
+        <div className="flex items-center justify-center">
+          <div className="flex items-center gap-1 bg-slate-900/90 backdrop-blur-xl p-1 rounded-2xl border border-slate-800 shadow-2xl overflow-x-auto no-scrollbar max-w-full">
+            <button
+              onClick={() => {
+                setLayoutStyle('floating_cubes');
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                layoutStyle === 'floating_cubes'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Box className="w-3.5 h-3.5" />
+              <span>Floating</span>
+            </button>
+            <button
+              onClick={() => {
+                setLayoutStyle('helix_carousel');
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                layoutStyle === 'helix_carousel'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Helix 3D</span>
+            </button>
+            <button
+              onClick={() => {
+                setLayoutStyle('sphere_cloud');
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                layoutStyle === 'sphere_cloud'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Sphere Globe</span>
+            </button>
+            <button
+              onClick={() => {
+                setLayoutStyle('wall_grid');
+                playSoundEffect('click', soundEffectsEnabled);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                layoutStyle === 'wall_grid'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              <span>Curved Wall</span>
+            </button>
+          </div>
         </div>
       </div>
 

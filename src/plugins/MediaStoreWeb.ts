@@ -1,6 +1,7 @@
 import { WebPlugin, Capacitor } from '@capacitor/core';
 import { MediaStorePluginInterface, PermissionStatus, MediaStoreQueryOptions, MediaStoreScanResult } from './MediaStorePlugin';
 import { MediaItem, Album } from '../types';
+import { loadMediaFromStorage, loadAlbumsFromStorage } from '../utils/storageDB';
 
 export class MediaStoreWeb extends WebPlugin implements MediaStorePluginInterface {
   constructor() {
@@ -11,11 +12,6 @@ export class MediaStoreWeb extends WebPlugin implements MediaStorePluginInterfac
   }
 
   private getStorage() {
-    if (Capacitor.getPlatform() === 'android') {
-      throw new Error('MediaStoreWeb must never execute on Android');
-    }
-    // Dynamic import guard ensuring storageDB is never loaded on Android
-    const { loadMediaFromStorage, loadAlbumsFromStorage } = require('../utils/storageDB');
     return { loadMediaFromStorage, loadAlbumsFromStorage };
   }
 

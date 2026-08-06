@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import { Sparkles, Users, MapPin, Tag, Film, ArrowRight, CheckCircle2, Layers } from 'lucide-react';
 
 interface AiOrganizeModalProps {
@@ -159,7 +160,7 @@ export const AiOrganizeModal: React.FC<AiOrganizeModalProps> = ({
                     className="group flex flex-col items-center p-4 rounded-3xl bg-slate-950 border border-slate-800 hover:border-purple-500 cursor-pointer transition-all hover:scale-105 shadow-xl"
                   >
                     <img
-                      src={person.coverUrl}
+                      src={formatMediaUrl(person.coverUrl)}
                       alt={person.name}
                       className="w-20 h-20 rounded-full object-cover border-2 border-purple-500/40 group-hover:border-purple-400 shadow-lg"
                     />
@@ -189,7 +190,7 @@ export const AiOrganizeModal: React.FC<AiOrganizeModalProps> = ({
                     }}
                     className="group relative h-32 rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 hover:border-purple-500 cursor-pointer transition-all shadow-xl"
                   >
-                    <img src={place.coverUrl} alt={place.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={formatMediaUrl(place.coverUrl)} alt={place.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent p-4 flex flex-col justify-end">
                       <div className="flex items-center gap-1.5 text-rose-400">
                         <MapPin className="w-4 h-4" />

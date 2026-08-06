@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import { X, Check, RotateCcw, RotateCw, Crop, Sliders, Wand2, Sun, Contrast, Droplets, Save } from 'lucide-react';
 
 interface PhotoEditorProps {
@@ -77,7 +78,7 @@ export const PhotoEditor: React.FC<PhotoEditorProps> = ({ item, onSave, onClose,
       {/* Main Canvas Viewport */}
       <div className="flex-1 relative flex items-center justify-center p-8 bg-slate-950 overflow-hidden">
         <img
-          src={item.url}
+          src={formatMediaUrl(item.url)}
           alt="Edit Preview"
           style={{
             transform: `rotate(${rotation}deg)`,
@@ -131,7 +132,7 @@ export const PhotoEditor: React.FC<PhotoEditorProps> = ({ item, onSave, onClose,
                 }`}
               >
                 <div className="w-12 h-12 rounded-xl bg-slate-950 overflow-hidden border border-slate-700">
-                  <img src={item.thumbnailUrl || item.url} alt={f.name} style={f.style} className="w-full h-full object-cover" />
+                  <img src={formatMediaUrl(item.thumbnailUrl || item.url)} alt={f.name} style={f.style} className="w-full h-full object-cover" />
                 </div>
                 <span className="text-[11px] font-semibold">{f.name}</span>
               </button>

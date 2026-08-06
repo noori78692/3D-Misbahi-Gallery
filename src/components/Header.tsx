@@ -4,9 +4,7 @@ import { playSoundEffect } from '../utils/audioSynth';
 import {
   Sparkles,
   Search,
-  Upload,
   Lock,
-  HardDrive,
   Settings,
   MoreVertical,
   X,
@@ -21,10 +19,8 @@ interface HeaderProps {
   onOpen3DExperience: () => void;
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
-  onOpenUpload: () => void;
+  onOpenUpload?: () => void;
   onOpenVault: () => void;
-  onOpenStorageAnalyzer: () => void;
-  onOpenAiOrganize: () => void;
   onOpenSettings: () => void;
 }
 
@@ -37,8 +33,6 @@ export const Header: React.FC<HeaderProps> = ({
   onUpdateSettings,
   onOpenUpload,
   onOpenVault,
-  onOpenStorageAnalyzer,
-  onOpenAiOrganize,
   onOpenSettings,
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -135,22 +129,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="sm:hidden">3D</span>
           </button>
 
-          {/* Import Button */}
-          <button
-            onClick={() => {
-              onOpenUpload();
-              playSoundEffect('click', settings.soundEffectsEnabled);
-            }}
-            className={`p-2 rounded-2xl border transition-all ${
-              isLight
-                ? 'bg-slate-100/80 border-slate-200 text-slate-700 hover:bg-slate-200/80'
-                : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Import Media"
-          >
-            <Upload className="w-4 h-4" />
-          </button>
-
           {/* More Menu Dropdown */}
           <div className="relative">
             <button
@@ -189,34 +167,6 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <Lock className="w-4 h-4 text-indigo-400" />
                     Protected Vault
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenStorageAnalyzer();
-                      playSoundEffect('click', settings.soundEffectsEnabled);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold transition-all ${
-                      isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800'
-                    }`}
-                  >
-                    <HardDrive className="w-4 h-4 text-cyan-400" />
-                    Storage Analyzer
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenAiOrganize();
-                      playSoundEffect('click', settings.soundEffectsEnabled);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl text-xs font-bold transition-all ${
-                      isLight ? 'hover:bg-slate-100' : 'hover:bg-slate-800'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    AI Memory Assistant
                   </button>
 
                   <button

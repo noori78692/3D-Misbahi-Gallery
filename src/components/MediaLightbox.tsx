@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import {
   X,
   ChevronLeft,
@@ -261,7 +262,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
       >
         {item.type === 'photo' && (
           <img
-            src={item.url}
+            src={formatMediaUrl(item.url)}
             alt={item.title}
             onDoubleClick={(e) => {
               e.stopPropagation();
@@ -276,7 +277,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({
           <div className="relative max-w-4xl max-h-[80vh] w-full flex flex-col items-center">
             <video
               ref={videoRef}
-              src={item.url}
+              src={formatMediaUrl(item.url)}
               controls
               autoPlay
               className="w-full max-h-[75vh] rounded-2xl shadow-2xl bg-black"

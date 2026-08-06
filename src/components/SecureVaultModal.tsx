@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MediaItem, AppSettings } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import { Lock, Unlock, Key, Fingerprint, Eye, EyeOff, ShieldCheck, Trash2, ArrowLeft, Layers } from 'lucide-react';
 
 interface SecureVaultModalProps {
@@ -180,7 +181,7 @@ export const SecureVaultModal: React.FC<SecureVaultModalProps> = ({
                     key={item.id}
                     className="relative group aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 hover:border-purple-500 transition-all"
                   >
-                    <img src={item.thumbnailUrl || item.url} alt={item.title} className="w-full h-full object-cover" />
+                    <img src={formatMediaUrl(item.thumbnailUrl || item.url)} alt={item.title} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 text-center gap-2">
                       <span className="text-xs font-bold text-white line-clamp-1">{item.title}</span>
                       <button

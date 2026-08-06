@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import {
   Grid,
   Check,
@@ -19,9 +20,8 @@ import {
   MapPin,
   Clock,
   Layers,
+  Image as ImageIcon,
 } from 'lucide-react';
-
-import { AndroidPermissionScanner } from './AndroidPermissionScanner';
 
 interface Gallery2DProps {
   items: MediaItem[];
@@ -61,12 +61,14 @@ export const Gallery2D: React.FC<Gallery2DProps> = ({
   const isMultiSelectMode = selectedItemIds.length > 0;
 
   // Group items by Date / Month / Year or Date string
-  const groupedItems = items.reduce((acc, item) => {
-    const key = item.month || 'Other';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, MediaItem[]>);
+  const groupedItems = useMemo(() => {
+    return items.reduce((acc, item) => {
+      const key = item.month || 'Other';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {} as Record<string, MediaItem[]>);
+  }, [items]);
 
 
   const gridColsClass = {
@@ -138,14 +140,15 @@ export const Gallery2D: React.FC<Gallery2DProps> = ({
 
       {/* Main Grid View Grouped by Month */}
       {Object.keys(groupedItems).length === 0 ? (
-        <AndroidPermissionScanner
-          onScanComplete={(newItems) => {
-            if (onScanComplete) {
-              onScanComplete(newItems);
-            }
-          }}
-          soundEffectsEnabled={soundEffectsEnabled}
-        />
+        <div className="flex flex-col items-center justify-center py-24 px-4 text-center animate-in fade-in duration-300">
+          <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mb-4 shadow-xl">
+            <ImageIcon className="w-8 h-8 text-purple-400/80" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-200 mb-1">No Media Found</h3>
+          <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+            Your media gallery is currently empty or no items match the active category filter.
+          </p>
+        </div>
       ) : (
         (Object.entries(groupedItems) as [string, MediaItem[]][]).map(([monthGroup, groupItems]) => (
           <div key={monthGroup} className="flex flex-col gap-2">
@@ -182,14 +185,14 @@ export const Gallery2D: React.FC<Gallery2DProps> = ({
                     {/* Media Thumbnail */}
                     {item.type === 'photo' || item.type === 'video' ? (
                       <img
-                        src={item.thumbnailUrl || item.url}
+                        src={formatMediaUrl(item.thumbnailUrl || item.url)}
                         alt={item.title}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
                       />
                     ) : item.type === 'audio' ? (
                       <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 flex flex-col items-center justify-center p-3 text-center">
-                        <Music className="w-8 h-8 text-purple-400 mb-2 animate-bounce" />
+                        <Music className="w-8 h-8 text-purple-400 mb-2 transition-transform group-hover:scale-110" />
                         <span className="text-xs font-bold text-slate-200 line-clamp-2">{item.title}</span>
                       </div>
                     ) : (

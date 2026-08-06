@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
+import { formatMediaUrl } from '../utils/mediaUtils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { HardDrive, Trash2, Copy, AlertTriangle, Sparkles, Check, FileCheck, Layers, PieChart as PieIcon } from 'lucide-react';
 
@@ -213,7 +214,7 @@ export const StorageAnalyzerModal: React.FC<StorageAnalyzerModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {duplicateItems.map((item) => (
                     <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-950 border border-slate-800">
-                      <img src={item.thumbnailUrl || item.url} alt="Duplicate" className="w-14 h-14 rounded-xl object-cover" />
+                      <img src={formatMediaUrl(item.thumbnailUrl || item.url)} alt="Duplicate" className="w-14 h-14 rounded-xl object-cover" />
                       <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-bold text-slate-200 truncate">{item.title}</h4>
                         <p className="text-[11px] text-slate-400">{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</p>
@@ -233,7 +234,7 @@ export const StorageAnalyzerModal: React.FC<StorageAnalyzerModalProps> = ({
               {largeFiles.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800">
                   <div className="flex items-center gap-3">
-                    <img src={item.thumbnailUrl || item.url} alt="Large" className="w-12 h-12 rounded-xl object-cover" />
+                    <img src={formatMediaUrl(item.thumbnailUrl || item.url)} alt="Large" className="w-12 h-12 rounded-xl object-cover" />
                     <div>
                       <h4 className="text-xs font-bold text-slate-200 truncate max-w-xs">{item.title}</h4>
                       <p className="text-[11px] text-amber-400 font-semibold">{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB</p>
@@ -277,7 +278,7 @@ export const StorageAnalyzerModal: React.FC<StorageAnalyzerModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {trashItems.map((item) => (
                   <div key={item.id} className="relative aspect-square rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
-                    <img src={item.thumbnailUrl || item.url} alt="Trash" className="w-full h-full object-cover opacity-60" />
+                    <img src={formatMediaUrl(item.thumbnailUrl || item.url)} alt="Trash" className="w-full h-full object-cover opacity-60" />
                     <div className="absolute inset-0 flex items-center justify-center p-2">
                       <span className="text-xs font-bold text-white bg-black/60 px-2 py-1 rounded-lg">In Trash</span>
                     </div>

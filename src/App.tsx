@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { MediaItem, Album, ViewMode, AppSettings, MainTab } from './types';
 import { mediaStoreService, MediaStoreService } from './services/mediaStoreService';
@@ -36,6 +36,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   slideshowSpeed: 3,
   slideshowEffect: 'fade',
   pinCode: '',
+  highFps120Hz: true,
   securityQuestion: 'What is the name of this gallery?',
   securityAnswer: '',
 };
@@ -147,23 +148,20 @@ export default function App() {
 
     const autoScanMediaStore = async () => {
       try {
+        if (Capacitor.getPlatform() === 'android') {
+          await mediaStoreService.requestPermissions();
+        }
+
         const items = await MediaStoreService.getInstance().getMedia();
         const albumList = await MediaStoreService.getInstance().getAlbums();
-        if (items.length > 0) {
-          setMediaItems(items);
-        }
-        if (albumList.length > 0) {
-          setAlbums(albumList);
-        }
+
+        setMediaItems(items);
+        setAlbums(albumList);
 
         // Set up real-time listener for file changes (camera photos, downloads, etc.)
         unsubscribe = await mediaStoreService.listenForMediaStoreChanges((updated) => {
-          if (updated.items.length > 0) {
-            setMediaItems(updated.items);
-          }
-          if (updated.albums.length > 0) {
-            setAlbums(updated.albums);
-          }
+          setMediaItems(updated.items);
+          setAlbums(updated.albums);
         });
       } catch (e) {
         console.error('MediaStore auto-scan error', e);
@@ -200,62 +198,80 @@ export default function App() {
   };
 
   // Filter Media Items logic
-  const filteredItems = mediaItems.filter((item) => {
-    if (item.isInTrash) return false;
-    if (item.isHidden) return false;
+  const filteredItems = useMemo(() => {
+    return mediaItems.filter((item) => {
+      if (item.isInTrash) return false;
+      if (item.isHidden) return false;
 
-    // Tab based filtering
-    if (activeTab === 'photos' && item.type !== 'photo') return false;
-    if (activeTab === 'videos' && item.type !== 'video') return false;
+      // Tab based filtering
+      if (activeCategory === 'all') {
+        if (activeTab === 'photos' && item.type !== 'photo') return false;
+        if (activeTab === 'videos' && item.type !== 'video') return false;
+      }
 
-    // Rule: If Music & Audio player is OFF, completely hide audio files
-    if (!settings.builtInAudioPlayerEnabled && item.type === 'audio') {
-      return false;
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchTags = item.tags.some((t) => t.toLowerCase().includes(q));
-      const matchMonth = item.month.toLowerCase().includes(q);
-      const matchPerson = item.personName?.toLowerCase().includes(q);
-      const matchLocation = item.location?.name.toLowerCase().includes(q) || item.location?.city.toLowerCase().includes(q);
-      if (!matchTitle && !matchTags && !matchMonth && !matchPerson && !matchLocation) {
+      // Rule: If Music & Audio player is OFF, completely hide audio files
+      if (!settings.builtInAudioPlayerEnabled && item.type === 'audio') {
         return false;
       }
-    }
 
-    // Category filter
-    if (activeCategory === 'photo') return item.type === 'photo';
-    if (activeCategory === 'video') return item.type === 'video';
-    if (activeCategory === 'audio') return item.type === 'audio';
-    if (activeCategory === 'document') return item.type === 'document';
-    if (activeCategory === 'camera') return item.source === 'camera';
-    if (activeCategory === 'whatsapp') return item.source === 'whatsapp';
-    if (activeCategory === 'telegram') return item.source === 'telegram';
-    if (activeCategory === 'screenshots') return item.source === 'screenshots';
-    if (activeCategory === 'favorites') return item.isFavorite;
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchTags = item.tags.some((t) => t.toLowerCase().includes(q));
+        const matchMonth = item.month.toLowerCase().includes(q);
+        const matchPerson = item.personName?.toLowerCase().includes(q);
+        const matchLocation = item.location?.name.toLowerCase().includes(q) || item.location?.city.toLowerCase().includes(q);
+        if (!matchTitle && !matchTags && !matchMonth && !matchPerson && !matchLocation) {
+          return false;
+        }
+      }
 
-    // Person filter prefix
-    if (activeCategory.startsWith('person:')) {
-      const pName = activeCategory.replace('person:', '');
-      return item.personName === pName;
-    }
+      // Category filter
+      if (activeCategory === 'photo') return item.type === 'photo';
+      if (activeCategory === 'video') return item.type === 'video';
+      if (activeCategory === 'audio') return item.type === 'audio';
+      if (activeCategory === 'document') return item.type === 'document';
+      if (activeCategory === 'camera') return item.source === 'camera';
+      if (activeCategory === 'whatsapp') return item.source === 'whatsapp';
+      if (activeCategory === 'telegram') return item.source === 'telegram';
+      if (activeCategory === 'screenshots') return item.source === 'screenshots';
+      if (activeCategory === 'favorites') return item.isFavorite;
 
-    // Location filter prefix
-    if (activeCategory.startsWith('place:')) {
-      const locName = activeCategory.replace('place:', '');
-      return item.location?.city === locName || item.location?.name.includes(locName);
-    }
+      // Custom or Folder Album filter
+      if (activeCategory.startsWith('album_')) {
+        const cleanCat = activeCategory.replace('album_', '').toLowerCase();
+        const itemAlbumId = (item.albumId || '').toLowerCase();
+        const itemAlbumName = (item.albumName || '').toLowerCase();
+        const itemSource = (item.source || '').toLowerCase();
+        return (
+          itemAlbumId === activeCategory ||
+          itemAlbumName.includes(cleanCat) ||
+          cleanCat.includes(itemSource) ||
+          itemSource.includes(cleanCat)
+        );
+      }
 
-    return true;
-  });
+      // Person filter prefix
+      if (activeCategory.startsWith('person:')) {
+        const pName = activeCategory.replace('person:', '');
+        return item.personName === pName;
+      }
+
+      // Location filter prefix
+      if (activeCategory.startsWith('place:')) {
+        const locName = activeCategory.replace('place:', '');
+        return item.location?.city === locName || item.location?.name.includes(locName);
+      }
+
+      return true;
+    });
+  }, [mediaItems, activeCategory, activeTab, settings.builtInAudioPlayerEnabled, searchQuery]);
 
   // Items in trash
-  const trashItems = mediaItems.filter((i) => i.isInTrash);
+  const trashItems = useMemo(() => mediaItems.filter((i) => i.isInTrash), [mediaItems]);
   // Items in hidden vault
-  const hiddenItems = mediaItems.filter((i) => i.isHidden);
+  const hiddenItems = useMemo(() => mediaItems.filter((i) => i.isHidden), [mediaItems]);
 
   // Multi-select actions
   const handleToggleSelectItem = (id: string) => {
@@ -351,8 +367,6 @@ export default function App() {
         onUpdateSettings={setSettings}
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenVault={() => setIsVaultOpen(true)}
-        onOpenStorageAnalyzer={() => setIsStorageAnalyzerOpen(true)}
-        onOpenAiOrganize={() => setIsAiOrganizeOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
@@ -403,8 +417,16 @@ export default function App() {
             albums={albums}
             mediaItems={mediaItems}
             onSelectAlbum={(albumId) => {
-              setActiveCategory(albumId);
-              setActiveTab('photos');
+              if (albumId === 'video') {
+                setActiveCategory('video');
+                setActiveTab('videos');
+              } else if (albumId === 'all') {
+                setActiveCategory('all');
+                setActiveTab('photos');
+              } else {
+                setActiveCategory(albumId);
+                setActiveTab('photos');
+              }
             }}
             onOpenVault={() => setIsVaultOpen(true)}
             onOpenTrash={() => setIsStorageAnalyzerOpen(true)}
@@ -442,25 +464,12 @@ export default function App() {
       {/* Full Screen Immersive 3D Experience Overlay */}
       {is3DExperienceOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col animate-in fade-in duration-300">
-          <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between p-3 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl">
-            <div className="flex items-center gap-2 text-white">
-              <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
-              <h2 className="text-sm font-extrabold">Spatial 3D Gallery</h2>
-            </div>
-            <button
-              onClick={() => setIs3DExperienceOpen(false)}
-              className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/80 transition-all"
-            >
-              <X className="w-4 h-4" />
-              Exit 3D Mode
-            </button>
-          </div>
-
           <Gallery3D
             items={mediaItems.filter((i) => !i.isInTrash && !i.isHidden)}
             albums={albums}
             onSelectMedia={handleSelectMedia}
             onSelectAlbum={() => setIs3DExperienceOpen(false)}
+            onClose={() => setIs3DExperienceOpen(false)}
             soundEffectsEnabled={settings.soundEffectsEnabled}
             backgroundMusicEnabled={settings.backgroundMusicEnabled}
             onToggleBGM={() =>

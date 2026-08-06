@@ -105,6 +105,7 @@ export interface AppSettings {
   folderViewEnabled?: boolean;
   timelineGrouping?: 'day' | 'month' | 'year';
   thumbnailSize?: 'compact' | 'normal' | 'large';
+  highFps120Hz?: boolean;
 }
 
 export interface StorageStats {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MediaItem } from '../types';
 import { playSoundEffect } from '../utils/audioSynth';
 import { MediaStoreService } from '../services/mediaStoreService';
+import { formatMediaUrl } from '../utils/mediaUtils';
 
 const getSavedMediaPosition = (id: string): number => {
   try {
@@ -337,7 +338,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
       <div className="relative w-full h-full flex items-center justify-center p-2">
         <video
           ref={videoRef}
-          src={item.url}
+          src={formatMediaUrl(item.url)}
           autoPlay
           style={{
             filter: `brightness(${brightness}%)`,
@@ -420,7 +421,7 @@ export const VideoPlayerModal: React.FC<VideoPlayerModalProps> = ({
                       : 'bg-slate-900/80 border-slate-800 hover:border-purple-500/40'
                   }`}
                 >
-                  <img src={v.thumbnailUrl || v.url} alt="Cover" className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                  <img src={formatMediaUrl(v.thumbnailUrl || v.url)} alt="Cover" className="w-12 h-12 rounded-xl object-cover shrink-0" />
                   <div className="flex-1 overflow-hidden">
                     <span className="text-xs font-bold text-white truncate block">{v.title}</span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block">{v.month}</span>
