@@ -6,18 +6,20 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
+import java.util.concurrent.Executors
 
 @CapacitorPlugin(
     name = "MediaStorePlugin",
     permissions = [
         Permission(
+            alias = "storage",
             strings = [
                 android.Manifest.permission.READ_MEDIA_IMAGES,
                 android.Manifest.permission.READ_MEDIA_VIDEO,
                 android.Manifest.permission.READ_MEDIA_AUDIO,
                 android.Manifest.permission.READ_EXTERNAL_STORAGE
-            ],
-            name = "storage"
+            ]
         )
     ]
 )
@@ -27,6 +29,9 @@ class MediaStorePlugin : Plugin() {
     private lateinit var mediaStoreManager: MediaStoreManager
     private lateinit var thumbnailProvider: ThumbnailProvider
     private var mediaObserver: MediaObserver? = null
+
+    // Single-thread executor to serialize blocking MediaStore work off the main thread
+    private val worker = Executors.newSingleThreadExecutor()
 
     override fun load() {
         super.load()
@@ -66,24 +71,41 @@ class MediaStorePlugin : Plugin() {
         val limit = call.getInt("limit", 5000) ?: 5000
         val offset = call.getInt("offset", 0) ?: 0
 
-        try {
-            val result = mediaStoreManager.scanMediaStore(type, limit, offset)
-            call.resolve(result)
-        } catch (e: Exception) {
-            call.reject("Failed to query MediaStore: ${e.localizedMessage}", e)
+        // Run the blocking ContentResolver queries off the main thread.
+        worker.execute {
+            try {
+                val result = mediaStoreManager.scanMediaStore(type, limit, offset)
+                val finalResult = result
+                bridge.activity.runOnUiThread {
+                    call.resolve(finalResult)
+                }
+            } catch (e: Exception) {
+                val msg = e.localizedMessage
+                bridge.activity.runOnUiThread {
+                    call.reject("Failed to query MediaStore: $msg", e)
+                }
+            }
         }
     }
 
     @PluginMethod
     fun getAlbums(call: PluginCall) {
-        try {
-            val scan = mediaStoreManager.scanMediaStore("all", 5000, 0)
-            val albums = scan.getJSArray("albums")
-            val result = JSObject()
-            result.put("albums", albums)
-            call.resolve(result)
-        } catch (e: Exception) {
-            call.reject("Failed to fetch albums: ${e.localizedMessage}", e)
+        worker.execute {
+            try {
+                val scan = mediaStoreManager.scanMediaStore("all", 5000, 0)
+                val albums = scan.getJSONArray("albums")
+                val result = JSObject()
+                result.put("albums", albums)
+                val finalResult = result
+                bridge.activity.runOnUiThread {
+                    call.resolve(finalResult)
+                }
+            } catch (e: Exception) {
+                val msg = e.localizedMessage
+                bridge.activity.runOnUiThread {
+                    call.reject("Failed to fetch albums: $msg", e)
+                }
+            }
         }
     }
 
@@ -99,14 +121,23 @@ class MediaStorePlugin : Plugin() {
             return
         }
 
-        try {
-            val mediaId = mediaIdStr.toLong()
-            val thumb = thumbnailProvider.getThumbnail(mediaId, mediaType, width, height)
-            val result = JSObject()
-            result.put("thumbnailUrl", thumb ?: "")
-            call.resolve(result)
-        } catch (e: Exception) {
-            call.reject("Thumbnail generation error: ${e.localizedMessage}", e)
+        // Thumbnail bitmap generation (including base64 encode) can be heavy.
+        worker.execute {
+            try {
+                val mediaId = mediaIdStr.toLong()
+                val thumb = thumbnailProvider.getThumbnail(mediaId, mediaType, width, height)
+                val result = JSObject()
+                result.put("thumbnailUrl", thumb ?: "")
+                val finalResult = result
+                bridge.activity.runOnUiThread {
+                    call.resolve(finalResult)
+                }
+            } catch (e: Exception) {
+                val msg = e.localizedMessage
+                bridge.activity.runOnUiThread {
+                    call.reject("Thumbnail generation error: $msg", e)
+                }
+            }
         }
     }
 
@@ -133,5 +164,6 @@ class MediaStorePlugin : Plugin() {
     override fun handleOnDestroy() {
         super.handleOnDestroy()
         mediaObserver?.unregister()
+        worker.shutdownNow()
     }
 }

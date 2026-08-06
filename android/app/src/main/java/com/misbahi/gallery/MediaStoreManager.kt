@@ -147,7 +147,7 @@ class MediaStoreManager(private val context: Context) {
                 item.put("url", contentUri.toString())
                 item.put("thumbnailUrl", contentUri.toString())
                 item.put("sizeBytes", size)
-                item.put("duration", formatDuration(durationMs))
+                item.put("duration", durationMs / 1000)
                 item.put("dateAdded", isoDate)
                 item.put("dateTaken", isoDate)
                 item.put("year", calendarYear(dateAddedSec))
@@ -156,6 +156,8 @@ class MediaStoreManager(private val context: Context) {
                 item.put("albumName", bucketName)
                 item.put("tags", JSArray().put("Video").put(bucketName))
                 item.put("isFavorite", false)
+                item.put("isHidden", false)
+                item.put("isInTrash", false)
 
                 items.put(item)
                 updateAlbumMap(albums, bucketId, bucketName, contentUri.toString(), isoDate)
@@ -208,13 +210,17 @@ class MediaStoreManager(private val context: Context) {
                 item.put("url", contentUri.toString())
                 item.put("thumbnailUrl", "")
                 item.put("sizeBytes", size)
-                item.put("duration", formatDuration(durationMs))
+                item.put("duration", durationMs / 1000)
                 item.put("artist", artist)
                 item.put("dateAdded", isoDate)
                 item.put("year", calendarYear(dateAddedSec))
                 item.put("month", calendarMonth(dateAddedSec))
+                item.put("albumId", "audio_album")
                 item.put("albumName", albumName)
                 item.put("tags", JSArray().put("Audio").put("Music"))
+                item.put("isFavorite", false)
+                item.put("isHidden", false)
+                item.put("isInTrash", false)
 
                 items.put(item)
             }
@@ -265,10 +271,4 @@ class MediaStoreManager(private val context: Context) {
         return sdf.format(Date(sec * 1000))
     }
 
-    private fun formatDuration(ms: Long): String {
-        val totalSec = ms / 1000
-        val mins = totalSec / 60
-        val secs = totalSec % 60
-        return String.format(Locale.US, "%d:%02d", mins, secs)
-    }
 }
